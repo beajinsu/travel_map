@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # 로컬서버 실행
-CMD ["python", "-m", "http.server", "8000"]
+CMD ["python", "-m", "http.server", "4000"]
