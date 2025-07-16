@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script>
+        L_NO_TOUCH = false;
+        L_DISABLE_3D = false;
+    </script>
+    <style>html, body {width: 100%; height: 100%; margin: 0; padding: 0;}</style>
+
+    <!-- Leaflet core -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.js"></script>
+
+    <!-- Heat plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <style>
+        #map_a3ca2e160c12b67f1dbe56ca7095b2fb { position: relative; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <div id="map_a3ca2e160c12b67f1dbe56ca7095b2fb"></div>
+</body>
+
+<script>
+    // 1) 지도 초기화
+    var map = L.map("map_a3ca2e160c12b67f1dbe56ca7095b2fb", {
+        center: [20, 0],      // 전세계 중심
+        zoom: 2,
+        zoomControl: true
+    });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: 'Data by © <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>'
+    }).addTo(map);
+</script>
+
+<!-- HeatMap 데이터 로드 -->
+<script src="scripts/heat_data.js"></script>
+<script>
+    // 2) HeatMap 레이어 생성 (heatData 필수)
+    var heat = L.heatLayer(heatData, {
+        radius: 25,
+        blur: 20,
+        minOpacity: 0.3,
+        // 색상 그라디언트 설정 (밀도별)
+        gradient: {
+            0.2: 'blue',
+            0.4: 'lime',
+            0.6: 'orange',
+            0.8: 'red'
+        }
+    }).addTo(map);
+
+    // 3) 줌 레벨에 따른 반경/블러 동적 조정
+    function updateHeatLayer() {
+        var z = map.getZoom();
+        // 전역 줌에서 뚜렷하게, 세부 줌 시 세밀하게
+        var radius = (z < 4) ? 30 : (40 - z * 3);
+        var blur   = radius / 2;
+        heat.setOptions({ radius: radius, blur: blur });
+    }
+    map.on('zoomend', updateHeatLayer);
+    updateHeatLayer();
+</script>
+
+<!-- Marker 데이터 로드 -->
+<script src="scripts/markers.js"></script>
+<script>
+    markers.forEach(function(m) {
+        var mk = L.marker([m.lat, m.lng]).addTo(map);
+        var content = m.link
+            ? '<a href="' + m.link + '" target="_blank">' + m.popup + '</a>'
+            : m.popup;
+        mk.bindPopup(content, { maxWidth: 250 });
+        mk.bindTooltip(m.tooltip || m.popup, { sticky: true });
+    });
+</script>
+</html>

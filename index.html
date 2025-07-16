@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jinsoo's Travel Map</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.6;
+      background-color: #f9f9f9;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+      margin-top: 1rem;
+    }
+    ul {
+      padding-left: 1rem;
+    }
+    ul li {
+      margin: 0.5rem 0;
+    }
+    a {
+      color: #007acc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    hr {
+      margin: 2rem 0;
+    }
+    .footer-note {
+      font-weight: bold;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Jinsoo's Travel Map</h1>
+
+  <p>
+    여기서는 내ㅇㅇ가 다녀온 장소들의 위치 정보를 기반으로 만들어진 <strong>히트맵(heatmap)</strong>을 볼 수 있습니다.
+    구글 포토에 저장된 사진들의 GPS 데이터를 활용하여 자동으로 생성되며, 가장 자주 방문한 지역은 짙은 색으로 표시됩니다.
+    html은 잘 모르지만 chatGPT와 Claude AI를 통해 구현했습니다.
+  </p>
+  
+  <p>
+    지도 상의 특정 마커를 클릭하면, 그 장소에 대해 제가 작성한 여행기록이나 관련 콘텐츠로 연결됩니다. 이건 제가 별도로 추가 한 것입니다.
+    이 콘텐츠는 Polarsteps, FindPenguins, Journey 등 다양한 외부 플랫폼에 연결되 있을 수 있으며, 각각의 링크로 연결됩니다.
+  </p>
+
+  <h2>지도 보기</h2>
+
+  <p>
+    아래 지도는 <code>my_travel_map.html</code> 파일에서 생성된 결과입니다.
+  </p>
+
+  <iframe src="./my_travel_map.html" title="My Travel Map"></iframe>
+
+  <h2>여행 콘텐츠 예시</h2>
+
+  <ul>
+    <li><a href="https://polarsteps.com/yourtrip_tokyo">📍 도쿄 여행기 (Polarsteps)</a></li>
+    <li><a href="https://journey.app/shared/paris-trip">📍 파리 여행기 (Journey)</a></li>
+    <li><a href="https://findpenguins.com/trip_sevilla">📍 세비야 스냅사진 (FindPenguins)</a></li>
+  </ul>
+
+  <h2>업데이트 계획</h2>
+
+  <ul>
+    <li>Google Photos 위치기반 자동 수집 → Folium 지도 자동 생성</li>
+    <li>새로운 장소 방문 시 외부 콘텐츠 링크 수동 추가</li>
+    <li>향후에는 여행기를 Markdown 포맷으로도 기록하여 블로그 형태로 확장할 계획입니다.</li>
+  </ul>
+
+  <hr />
+
+  <p class="footer-note">🗺 <strong>지도를 스크롤하여 탐색하고, 원하는 마커를 클릭해보세요!</strong></p>
+
+  <p>
+   참고: 대략적으로는 Google Photos에서 location 정보를 추출하였고 소수점 자리는 반올림하여 1km 정도로 그룹화하여 정확한위치는 알기 어렵도록 하였습니다. 
+   그리고 이를 Leaflet.js 라이브러리를 사용하여 히트맵으로 시각화했습니다. 
+  </p>
+
+</body>
+</html>

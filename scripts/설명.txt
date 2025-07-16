@@ -1,0 +1,23 @@
+구글 photo API는 위치정보가 없음.
+구글 drive 에서는 위치정보가 있지만, google photo의 파일이 없음
+구글 takeout을 사용한 방법이 제일 확실함.
+
+# 참고 페이지
+# https://www.labnol.org/code/20059-image-exif-and-location
+# https://max-coding.medium.com/download-all-your-google-photos-and-extract-exif-metadata-into-a-csv-file-using-python-and-pandas-4a65de8392ab
+# https://stackoverflow.com/questions/51336701/location-data-google-photos-api
+
+
+구글 photo API 를 이용해서 파일의 일부 부분만 받아서 metadata -parsing 하는 전략  (이것도 실패-> 25.3이후로 아예 구글포토 API가 접근을 하기 어려움)
+
+2번(Photos API → 이미지 다운로드 → EXIF 파싱)은 기본적으로 위치 정보를 파싱하려는 모든 사진 파일에 대해 이미지 바이트를 내려받아야 합니다. 다만, 다음과 같은 최적화 방법을 고려할 수 있습니다:
+이미지 필터링
+mediaItems.list 호출 시 mediaTypeFilter=PHOTO 등으로 사진만 가져오도록 해서 동영상 등을 제외
+날짜나 앨범 단위로 범위를 좁혀 필요한 사진만 처리
+HTTP Range 요청
+JPEG 파일의 EXIF 메타데이터는 일반적으로 파일 헤더 부분(처음 몇십 KB)에 들어 있으므로,
+Range: bytes=0-65535 같은 헤더를 붙여 앞부분만 내려받아도 EXIF는 충분히 읽을 수 있습니다.
+이렇게 하면 전체 파일 용량이 큰 경우에도 트래픽을 크게 줄일 수 있습니다.
+병렬화 & 배치 처리
+병렬로 여러 HTTP 요청을 날려 처리 속도를 높이되, 구글 API 할당량(QPS) 안에서 조절
+한 번에 100개씩 mediaItems.list → Get → EXIF 파싱 → 결과 저장 식의 워크플로우

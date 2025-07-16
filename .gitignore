@@ -1,0 +1,8 @@
+# macOS 파일
+.DS_Store
+
+# 위치 정보 파일 (비공개)
+takeout_with_location.json
+
+# 민감 정보 스크립트 전체 무시
+scripts/실패한 방법들/**
