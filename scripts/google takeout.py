@@ -1,4 +1,3 @@
-# parse_takeout_filtered.py
 import os, re, json
 from pathlib import Path
 
@@ -11,6 +10,26 @@ ROOT = Path(r"C:\Users\jsbae\OneDrive - KIF\g_phto\Takeout\Google Photos")
 
 # "Photos from 2015", "Photos from 2016" 등 연도별 폴더만 처리
 YEAR_DIR_RE = re.compile(r"^Photos from (\d{4})$")
+
+def is_valid_coordinate(lat, lng):
+    """유효한 좌표인지 확인"""
+    # None 체크
+    if lat is None or lng is None:
+        return False
+    
+    # 정확한 (0,0) 좌표만 제외
+    if lat == 0.0 and lng == 0.0:
+        return False
+    
+    # 위도 범위 체크 (-90 ~ 90)
+    if lat < -90 or lat > 90:
+        return False
+    
+    # 경도 범위 체크 (-180 ~ 180)
+    if lng < -180 or lng > 180:
+        return False
+    
+    return True
 
 with_location = []
 without_location = []
@@ -26,7 +45,9 @@ for child in ROOT.iterdir():
         geo = data.get("geoData") or {}
         lat = geo.get("latitude")
         lng = geo.get("longitude")
-        if lat is not None and lng is not None:
+        
+        # 유효한 좌표인지 확인
+        if is_valid_coordinate(lat, lng):
             with_location.append({
                 "file": js.name.replace(".json", ".jpg"),
                 "lat":  lat,

@@ -6,98 +6,404 @@
         L_NO_TOUCH = false;
         L_DISABLE_3D = false;
     </script>
-    <style>html, body {width: 100%; height: 100%; margin: 0; padding: 0;}</style>
-
+    <style>
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; }
+        /* 연도 컨트롤 스타일 */
+        .year-controls {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-family: Arial, sans-serif;
+            height: 36px;
+        }
+        .btn {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn:hover { background: #005a8b; }
+        .btn.active { background: #28a745; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-all {
+            padding: 6px 20px;
+            min-width: 80px;
+        }
+        .year-slider { width: 200px; }
+        .year-display { 
+            font-weight: bold; 
+            font-size: 16px; 
+            color: #333; 
+            min-width: 50px; 
+            text-align: center; 
+        }
+        .year-range { 
+            font-size: 11px; 
+            color: #666; 
+            display: flex; 
+            justify-content: space-between; 
+            width: 200px; 
+            margin-top: 2px;
+        }
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        .year-display-center {
+            position: absolute;
+            top: 82%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 4px 12px;
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+            pointer-events: none;
+            display: block;
+        }
+    </style>
     <!-- Leaflet core -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.css"/>
     <script src="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.js"></script>
-
     <!-- Heat plugin -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <style>
-        #map_a3ca2e160c12b67f1dbe56ca7095b2fb { position: relative; width: 100%; height: 100%; }
-    </style>
+    <style>#map { position: relative; width: 100%; height: 100%; }</style>
 </head>
 <body>
-    <div id="map_a3ca2e160c12b67f1dbe56ca7095b2fb"></div>
+    <!-- 연도 컨트롤 -->
+    <div class="year-controls">
+        <button id="allYearsBtn" class="btn btn-all active">전체 보기</button>
+        <button id="prevBtn" class="btn">◀️</button>
+        <div class="slider-container">
+            <div id="yearDisplayCenter" class="year-display-center"></div>
+            <input type="range" id="yearSlider" class="year-slider" step="1">
+            <div class="year-range"><span></span><span></span></div>
+        </div>
+        <button id="nextBtn" class="btn">▶️</button>
+        <div id="yearDisplay" class="year-display" style="display: none;"></div>
+    </div>
+    <div id="map"></div>
+
+    <script>
+        // 1) 지도 초기화
+        var map = L.map("map", { center: [20, 0], zoom: 2, zoomControl: true });
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: 'Data © <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
+        }).addTo(map);
+    </script>
+
+    <!-- 연도별 히트맵 데이터 로드 -->
+    <script src="scripts/heat_data.js"></script>
+    <script>
+        // 샘플 데이터 (실제 사용 시 scripts/heat_data.js에서 로드)
+        if (typeof heatDataByYear === 'undefined') {
+            var heatDataByYear = {
+                "all": [
+                    [37.5665, 126.9780], // 서울
+                    [35.6762, 139.6503], // 도쿄
+                    [40.7128, -74.0060], // 뉴욕
+                    [51.5074, -0.1278],  // 런던
+                    [48.8566, 2.3522],   // 파리
+                ],
+                "2015": [[37.5665, 126.9780], [35.6762, 139.6503]],
+                "2016": [[37.5665, 126.9780], [1.3521, 103.8198]],
+                "2017": [[37.5665, 126.9780], [40.7128, -74.0060]],
+                "2018": [[37.5665, 126.9780], [41.0082, 28.9784]],
+                "2019": [[37.5665, 126.9780], [55.7558, 37.6173]],
+                "2020": [[37.5665, 126.9780], [40.7128, -74.0060]],
+                "2021": [[37.5665, 126.9780], [35.6762, 139.6503]],
+                "2022": [[37.5665, 126.9780], [48.8566, 2.3522]],
+                "2023": [[37.5665, 126.9780], [52.5200, 13.4050]],
+                "2024": [[37.5665, 126.9780], [38.9072, -77.0369]]
+            };
+        }
+
+        // 전역 변수
+        var currentHeatLayer = null;
+        var currentYear = 'all';
+
+        // UI 요소
+        const allBtn = document.getElementById('allYearsBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const slider = document.getElementById('yearSlider');
+        const yearDisplay = document.getElementById('yearDisplay');
+        const yearDisplayCenter = document.getElementById('yearDisplayCenter');
+        const rangeLabels = document.querySelector('.year-range').children;
+
+        // 가용 연도 목록 (heatDataByYear는 heat_data.js에서 제공)
+        const years = Object.keys(heatDataByYear)
+            .filter(y => y !== 'all' && !isNaN(parseInt(y)))
+            .map(y => parseInt(y))
+            .sort((a, b) => a - b);
+        
+        console.log('처리된 연도 배열:', years);
+        
+        const minY = years[0];
+        const maxY = years[years.length - 1];
+
+        // 슬라이더 및 라벨 설정
+        slider.min = minY; 
+        slider.max = maxY; 
+        slider.value = minY;
+        slider.step = 1;
+        rangeLabels[0].textContent = minY;
+        rangeLabels[1].textContent = maxY;
+        
+        console.log('슬라이더 설정 완료:', {min: minY, max: maxY, value: slider.value});
+
+        // 히트맵 렌더링 함수
+        function showHeat(year) {
+            console.log('showHeat 호출됨, 연도:', year);
+            
+            if (currentHeatLayer) {
+                map.removeLayer(currentHeatLayer);
+                currentHeatLayer = null;
+            }
+            
+            var data = heatDataByYear[year] || [];
+            console.log('데이터 길이:', data.length);
+            
+            if (data.length > 0) {
+                currentHeatLayer = L.heatLayer(data, {
+                    radius: 25, 
+                    blur: 20, 
+                    minOpacity: 0.3,
+                    gradient: {0.2:'blue',0.4:'lime',0.6:'orange',0.8:'red'}
+                }).addTo(map);
+                updateHeatOptions();
+            }
+            
+            currentYear = year;
+            updateUI();
+            console.log('currentYear 업데이트됨:', currentYear);
+        }
+
+        // 줌별 히트맵 옵션 업데이트
+        function updateHeatOptions() {
+            if (!currentHeatLayer) return;
+            var z = map.getZoom();
+            var rad = [10,10,10,10,28,25,22,19,16,13,10,7,4,1,0,0,0,0,0][z]||0;
+            var bl = [5,5,5,5,14,12,11,9,8,6,5,3,2,1,0,0,0,0,0][z]||0;
+            currentHeatLayer.setOptions({ radius: rad, blur: bl });
+        }
+
+        // UI 상태 갱신
+        function updateUI() {
+            console.log('updateUI 호출, currentYear:', currentYear);
+            
+            allBtn.classList.toggle('active', currentYear === 'all');
+            
+            if (currentYear === 'all') {
+                yearDisplay.style.display = 'none';
+                yearDisplayCenter.style.display = 'block';
+                yearDisplayCenter.textContent = '전체보기';  // 전체보기 모드에서 "전체보기" 표시
+                prevBtn.disabled = false;  // 버튼 활성화
+                nextBtn.disabled = false;  // 버튼 활성화
+                slider.disabled = false;
+                slider.style.opacity = '1';
+                console.log('전체 보기 모드 - 모든 컨트롤 활성화');
+            } else {
+                yearDisplay.style.display = 'none';  // 기존 우측 표시 숨김
+                yearDisplayCenter.style.display = 'block';  // 중앙 표시 활성화
+                yearDisplayCenter.textContent = currentYear;  // 연도별 모드에서 연도 표시
+                
+                var currentYearNum = parseInt(currentYear);
+                var idx = years.indexOf(currentYearNum);
+                
+                console.log('연도별 모드 - 슬라이더 활성화', {
+                    현재연도: currentYearNum,
+                    인덱스: idx,
+                    전체연도수: years.length
+                });
+                
+                prevBtn.disabled = (idx <= 0);
+                nextBtn.disabled = (idx >= years.length - 1);
+                slider.disabled = false;
+                slider.style.opacity = '1';
+                slider.value = currentYearNum;
+                
+                console.log('슬라이더 활성화됨, 값:', slider.value, '비활성화:', slider.disabled);
+            }
+        }
+
+        // 이벤트 바인딩
+        allBtn.onclick = () => { 
+            console.log('전체 보기 클릭됨');
+            showHeat('all'); 
+        };
+        
+        prevBtn.onclick = () => {
+            console.log('이전 버튼 클릭됨');
+            // 전체 보기 상태라면 마지막 연도로 시작
+            if (currentYear === 'all') {
+                showHeat(years[years.length - 1].toString());
+            } else {
+                var currentYearNum = parseInt(currentYear);
+                var i = years.indexOf(currentYearNum);
+                if (i > 0) {
+                    var prevYear = years[i-1].toString();
+                    console.log('이전 버튼 클릭, 이동할 연도:', prevYear);
+                    showHeat(prevYear);
+                }
+            }
+        };
+        
+        nextBtn.onclick = () => {
+            console.log('다음 버튼 클릭됨');
+            // 전체 보기 상태라면 첫 번째 연도로 시작
+            if (currentYear === 'all') {
+                showHeat(years[0].toString());
+            } else {
+                var currentYearNum = parseInt(currentYear);
+                var i = years.indexOf(currentYearNum);
+                if (i < years.length-1) {
+                    var nextYear = years[i+1].toString();
+                    console.log('다음 버튼 클릭, 이동할 연도:', nextYear);
+                    showHeat(nextYear);
+                }
+            }
+        };
+        
+        // 슬라이더 이벤트 - 단순화하고 강화
+        function handleSliderChange(e) {
+            var sliderValue = parseInt(e.target.value);
+            var selectedYear = sliderValue.toString();
+            
+            console.log('슬라이더 변경됨:', {
+                슬라이더값: sliderValue,
+                선택연도: selectedYear,
+                현재연도: currentYear,
+                사용가능연도: years,
+                데이터키: Object.keys(heatDataByYear)
+            });
+            
+            // 데이터에 해당 연도가 존재하는지 확인
+            if (heatDataByYear[selectedYear]) {
+                console.log('유효한 연도, 히트맵 업데이트');
+                showHeat(selectedYear);
+            } else {
+                console.log('유효하지 않은 연도, 사용 가능한 키들:', Object.keys(heatDataByYear));
+            }
+        }
+        
+        // 더 간단한 슬라이더 이벤트
+        slider.oninput = function(e) {
+            console.log('oninput 이벤트 발생, 값:', e.target.value);
+            handleSliderChange(e);
+        };
+        
+        slider.onchange = function(e) {
+            console.log('onchange 이벤트 발생, 값:', e.target.value);
+            handleSliderChange(e);
+        };
+        
+        // 추가 이벤트 리스너들
+        slider.addEventListener('input', function(e) {
+            console.log('addEventListener input 이벤트 발생, 값:', e.target.value);
+            handleSliderChange(e);
+        });
+        
+        slider.addEventListener('change', function(e) {
+            console.log('addEventListener change 이벤트 발생, 값:', e.target.value);
+            handleSliderChange(e);
+        });
+        
+        // 직접 마우스/터치 이벤트도 처리
+        slider.addEventListener('mouseup', handleSliderChange);
+        slider.addEventListener('touchend', handleSliderChange);
+        
+        // 키보드 이벤트도 추가
+        slider.addEventListener('keyup', handleSliderChange);
+
+        // 줌 이벤트
+        map.on('zoomend', updateHeatOptions);
+        
+        // 초기 표시를 전체 보기로 변경
+        console.log('초기화 시작');
+        console.log('사용 가능한 연도들:', years);
+        console.log('슬라이더 설정:', slider.min, slider.max, slider.value);
+        console.log('heatDataByYear 키들:', Object.keys(heatDataByYear));
+        
+        // 슬라이더 테스트 함수
+        window.testSlider = function() {
+            console.log('슬라이더 테스트 시작');
+            console.log('슬라이더 현재 값:', slider.value);
+            console.log('슬라이더 비활성화 여부:', slider.disabled);
+            
+            // 수동으로 연도 변경 테스트
+            var testYear = '2020';
+            if (heatDataByYear[testYear]) {
+                console.log('2020년 데이터 존재, 테스트 실행');
+                showHeat(testYear);
+            } else {
+                console.log('2020년 데이터 없음');
+            }
+        };
+        
+        // 디폴트는 전체 보기
+        showHeat('all');
+    </script>
+
+    <!-- 마커 레이어 (줌 레벨에 따라) -->
+    <script src="scripts/markers.js"></script>
+    <script>
+        // 샘플 마커 데이터 (실제 사용 시 scripts/markers.js에서 로드)
+        if (typeof markers === 'undefined') {
+            var markers = [
+                {lat: 37.5665, lng: 126.9780, popup: "서울 🇰🇷", tooltip: "Seoul", link: ""},
+                {lat: 35.6762, lng: 139.6503, popup: "도쿄 🇯🇵", tooltip: "Tokyo", link: ""},
+                {lat: 40.7128, lng: -74.0060, popup: "뉴욕 🇺🇸", tooltip: "New York", link: ""},
+                {lat: 51.5074, lng: -0.1278, popup: "런던 🇬🇧", tooltip: "London", link: ""},
+                {lat: 48.8566, lng: 2.3522, popup: "파리 🇫🇷", tooltip: "Paris", link: ""}
+            ];
+        }
+
+        var markerLayer = L.layerGroup();
+        markers.forEach(m => {
+            var mk = L.marker([m.lat, m.lng]);
+            mk.bindPopup(m.link? `<a href="${m.link}" target="_blank">${m.popup}</a>` : m.popup, { maxWidth:250 });
+            mk.bindTooltip(m.tooltip||m.popup, { sticky:true });
+            markerLayer.addLayer(mk);
+        });
+        
+        const SHOW_ZOOM = 6;
+        function toggleMarkers() {
+            if (map.getZoom() >= SHOW_ZOOM) {
+                if (!map.hasLayer(markerLayer)) {
+                    map.addLayer(markerLayer);
+                }
+            } else {
+                if (map.hasLayer(markerLayer)) {
+                    map.removeLayer(markerLayer);
+                }
+            }
+        }
+        
+        map.on('zoomend', toggleMarkers);
+        toggleMarkers();
+    </script>
 </body>
-
-<script>
-    // 1) 지도 초기화
-    var map = L.map("map_a3ca2e160c12b67f1dbe56ca7095b2fb", {
-        center: [20, 0],      // 전세계 중심
-        zoom: 2,
-        zoomControl: true
-    });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: 'Data by © <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>'
-    }).addTo(map);
-</script>
-
-<!-- HeatMap 데이터 로드 -->
-<script src="scripts/heat_data.js"></script>
-<script>
-    // 2) HeatMap 레이어 생성 (heatData 필수)
-    var heat = L.heatLayer(heatData, {
-        radius: 25,
-        blur: 20,
-        minOpacity: 0.3,
-        // 색상 그라디언트 설정 (밀도별)
-        gradient: {
-            0.2: 'blue',
-            0.4: 'lime',
-            0.6: 'orange',
-            0.8: 'red'
-        }
-    }).addTo(map);
-
-    // 3) 줌 레벨에 따른 반경/블러 동적 조정
-    // blur는 얼마나 퍼지는지를 의미하며 radius의 값이 클수록 완만한 그라데이션 작을 수록 포인트 위주로 샤프하게
-    function updateHeatLayer() {
-        var z = map.getZoom();
-    // 줌별 radius/blur 설정: [0, 1, 2, 3,   4,   5,   6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
-        var radiusSettings = [7, 7, 7, 9.0, 9.0, 9.0, 11, 19, 16, 13, 10, 7, 4, 1, 0, 0, 0, 0, 0];
-        var blurSettings   = [4, 4, 4, 4.2, 4.2, 4.2, 5.5,  9,  8,  6,  5, 3, 2, 1, 0, 0, 0, 0, 0]; 
-        var radius = radiusSettings[z] || 0;
-        var blur   = blurSettings[z]   || 0;
-        heat.setOptions({ radius: radius, blur: blur });
-    }
-    map.on('zoomend', updateHeatLayer);
-    updateHeatLayer();
-</script>
-
-<!-- Marker 데이터 로드 -->
-<script src="scripts/markers.js"></script>
-<script>
-    // 4) Marker 레이어 그룹 생성 (초기에는 추가하지 않음)
-    var markerLayer = L.layerGroup();
-    markers.forEach(function(m) {
-        var mk = L.marker([m.lat, m.lng]);
-        var content = m.link
-            ? '<a href="' + m.link + '" target="_blank">' + m.popup + '</a>'
-            : m.popup;
-        mk.bindPopup(content, { maxWidth: 250 });
-        mk.bindTooltip(m.tooltip || m.popup, { sticky: true });
-        markerLayer.addLayer(mk);
-    });
-
-    // 5) 특정 줌 레벨 이상일 때만 Marker 보이도록 설정
-    var SHOW_ZOOM_LEVEL = 6;
-    function updateMarkers() {
-        if (map.getZoom() >= SHOW_ZOOM_LEVEL) {
-            if (!map.hasLayer(markerLayer)) {
-                map.addLayer(markerLayer);
-            }
-        } else {
-            if (map.hasLayer(markerLayer)) {
-                map.removeLayer(markerLayer);
-            }
-        }
-    }
-    map.on('zoomend', updateMarkers);
-    updateMarkers();
-</script>
 </html>
-
