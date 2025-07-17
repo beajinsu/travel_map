@@ -54,11 +54,14 @@
     }).addTo(map);
 
     // 3) 줌 레벨에 따른 반경/블러 동적 조정
+    // blur는 얼마나 퍼지는지를 의미하며 radius의 값이 클수록 완만한 그라데이션 작을 수록 포인트 위주로 샤프하게
     function updateHeatLayer() {
         var z = map.getZoom();
-        // 전역 줌에서 뚜렷하게, 세부 줌 시 세밀하게
-        var radius = (z < 4) ? 30 : (40 - z * 3);
-        var blur   = radius / 2;
+    // 줌별 radius/blur 설정: [0, 1, 2, 3,   4,   5,   6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+        var radiusSettings = [7, 7, 7, 9.0, 9.0, 9.0, 11, 19, 16, 13, 10, 7, 4, 1, 0, 0, 0, 0, 0];
+        var blurSettings   = [4, 4, 4, 4.2, 4.2, 4.2, 5.5,  9,  8,  6,  5, 3, 2, 1, 0, 0, 0, 0, 0]; 
+        var radius = radiusSettings[z] || 0;
+        var blur   = blurSettings[z]   || 0;
         heat.setOptions({ radius: radius, blur: blur });
     }
     map.on('zoomend', updateHeatLayer);
@@ -68,13 +71,33 @@
 <!-- Marker 데이터 로드 -->
 <script src="scripts/markers.js"></script>
 <script>
+    // 4) Marker 레이어 그룹 생성 (초기에는 추가하지 않음)
+    var markerLayer = L.layerGroup();
     markers.forEach(function(m) {
-        var mk = L.marker([m.lat, m.lng]).addTo(map);
+        var mk = L.marker([m.lat, m.lng]);
         var content = m.link
             ? '<a href="' + m.link + '" target="_blank">' + m.popup + '</a>'
             : m.popup;
         mk.bindPopup(content, { maxWidth: 250 });
         mk.bindTooltip(m.tooltip || m.popup, { sticky: true });
+        markerLayer.addLayer(mk);
     });
+
+    // 5) 특정 줌 레벨 이상일 때만 Marker 보이도록 설정
+    var SHOW_ZOOM_LEVEL = 6;
+    function updateMarkers() {
+        if (map.getZoom() >= SHOW_ZOOM_LEVEL) {
+            if (!map.hasLayer(markerLayer)) {
+                map.addLayer(markerLayer);
+            }
+        } else {
+            if (map.hasLayer(markerLayer)) {
+                map.removeLayer(markerLayer);
+            }
+        }
+    }
+    map.on('zoomend', updateMarkers);
+    updateMarkers();
 </script>
 </html>
+
