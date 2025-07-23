@@ -4,9 +4,14 @@ import json
 from datetime import datetime
 
 # locatin 정보가 있는 Json 파일 위치를 넣으세요. 같은 폴더에 heat_map이 만들어 집니다.
-os.chdir(r"C:\Users\jsbae\My_Drive\github\travel_map\scripts")
-print("현재 작업 디렉토리:", os.getcwd())
+# os.chdir(r"C:\Users\jsbae\My_Drive\github\travel_map\scripts")
 
+# 컽퓨터 마다 user폴더가 다를 수 있기 때문에 다음처럼 설정
+home = os.path.expanduser("~")  # Windows라면 C:\Users\<username> 을 리턴
+target_dir = os.path.join(home, "My_Drive", "github", "travel_map", "scripts")
+os.chdir(target_dir)
+
+print("현재 작업 디렉토리:", os.getcwd())
 # =============================================================================
 # 🛫 비행기 탑승 시간 설정 (여기에 추가/수정하세요)
 # =============================================================================
@@ -105,22 +110,30 @@ def parse_timestamp(timestamp_str):
         # 오류 발생 시 None 반환
         return None
 
+from datetime import datetime, timedelta
+# 버퍼 시간 (예: 6시간, 이건 지역별로 타임존이 다르기 때문에 생길 수 있는 현상을 제거하고, 비행시간 전후를 확실히 제거하기 위함.)
+BUFFER = timedelta(hours=6)
 def is_during_flight(photo_time, flight_periods):
     """사진 촬영 시간이 비행기 탑승 시간 중인지 확인"""
     if not photo_time:
-        return False
-    
+        return False, None
+
     for flight in flight_periods:
         try:
-            start_time = datetime.strptime(flight["start"], "%Y-%m-%d %H:%M:%S")
-            end_time = datetime.strptime(flight["end"], "%Y-%m-%d %H:%M:%S")
+            # 기존 start/end 파싱
+            start = datetime.strptime(flight["start"], "%Y-%m-%d %H:%M:%S")
+            end   = datetime.strptime(flight["end"],   "%Y-%m-%d %H:%M:%S")
             
-            if start_time <= photo_time <= end_time:
+            # 버퍼 적용
+            buffered_start = start - BUFFER
+            buffered_end   = end   + BUFFER
+
+            if buffered_start <= photo_time <= buffered_end:
                 return True, flight["name"]
         except ValueError as e:
             print(f"⚠️  비행기 시간 형식 오류: {flight}, 에러: {e}")
             continue
-    
+
     return False, None
 
 # 원본 위치 JSON 로드
