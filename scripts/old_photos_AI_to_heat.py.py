@@ -1,4 +1,4 @@
-# old_photos_to_heat.py - old_photos_with.json을 heat_data.js에 병합
+# old_photos_AI_to_heat.py - oldphotos_ai_with - fixed.json을 heat_data.js에 병합
 import json
 import re
 import shutil
@@ -19,10 +19,10 @@ except:
     existing_heat_data = {}
     print("기존 heat_data.js 없음. 새로 생성")
 
-# 2. oldphotos_with.json 로드
-with open('oldphotos_with.json', 'r', encoding='utf-8') as f:
+# 2. oldphotos_ai_with - fixed.json 로드
+with open('oldphotos_ai_with - fixed.json', 'r', encoding='utf-8') as f:
     old_photos = json.load(f)
-print(f"oldphotos_with.json 로드: {len(old_photos)}개 사진")
+print(f"oldphotos_ai_with - fixed.json 로드: {len(old_photos)}개 사진")
 
 # 3. 새 데이터 변환
 all_coords = []
