@@ -68,20 +68,18 @@
 
   <iframe src="./my_travel_map.html" title="My Travel Map"></iframe>
 
-  <h2>여행 콘텐츠 예시</h2>
+<h2>방문 기록</h2>
+<ul id="external-links">
+  <!-- markers.js에서 자동으로 채워짐 -->
+  <li>불러오는 중…</li>
+</ul>
+
+  <h2>업데이트 계획 및 진행상황</h2>
 
   <ul>
-    <li><a href="https://polarsteps.com/yourtrip_tokyo">📍 도쿄 여행기 (Polarsteps)</a></li>
-    <li><a href="https://journey.app/shared/paris-trip">📍 파리 여행기 (Journey)</a></li>
-    <li><a href="https://findpenguins.com/trip_sevilla">📍 세비야 스냅사진 (FindPenguins)</a></li>
-  </ul>
-
-  <h2>업데이트 계획</h2>
-
-  <ul>
-    <li>Google Photos 위치기반 자동 수집 → Folium 지도 자동 생성</li>
-    <li>새로운 장소 방문 시 외부 콘텐츠 링크 수동 추가</li>
-    <li>향후에는 여행기를 Markdown 포맷으로도 기록하여 블로그 형태로 확장할 계획입니다.</li>
+    <li>휴대폰 사진으로 위치 자동 수집 → Folium 지도 자동 생성 (완료)</li>
+    <li>방문지역 기록 링크 추가 (진행 중)</li>
+    <li>향후에는 여행기를 Markdown 포맷으로도 기록하여 블로그 형태로 확장할 계획입니다. (예정인데 아마도 안할 듯)</li>
   </ul>
 
   <hr />
@@ -92,6 +90,43 @@
    참고: 대략적으로는 Google Photos에서 location 정보를 추출하였고 소수점 자리는 반올림하여 1km 정도로 그룹화하여 정확한위치는 알기 어렵도록 하였습니다. 
    그리고 이를 Leaflet.js 라이브러리를 사용하여 히트맵으로 시각화했습니다. 
   </p>
+
+<script src="scripts/markers.js"></script>
+<script>
+(function () {
+  const listEl = document.getElementById('external-links');
+  if (!listEl) return;
+
+  if (!Array.isArray(window.markers)) {
+    listEl.innerHTML = '<li>마커 데이터 없음(scripts/markers.js 확인)</li>';
+    return;
+  }
+
+  const items = window.markers.filter(m => m && m.link);
+  const seen = new Set();
+  const unique = [];
+  for (const m of items) {
+    const key = String(m.link).trim();
+    if (!seen.has(key)) { seen.add(key); unique.push(m); }
+  }
+
+  if (unique.length === 0) {
+    listEl.innerHTML = '<li>표시할 여행기 링크가 없습니다.</li>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  for (const m of unique) {
+    const text = (m.popup || m.tooltip || '여행기').replace(/<[^>]*>/g,'').trim();
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.href = m.link; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.textContent = `📍 ${text}`;
+    li.appendChild(a);
+    listEl.appendChild(li);
+  }
+})();
+</script>
 
 </body>
 </html>

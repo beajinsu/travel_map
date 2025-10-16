@@ -367,43 +367,86 @@
         showHeat('all');
     </script>
 
-    <!-- 마커 레이어 (줌 레벨에 따라) -->
-    <script src="scripts/markers.js"></script>
-    <script>
-        // 샘플 마커 데이터 (실제 사용 시 scripts/markers.js에서 로드)
-        if (typeof markers === 'undefined') {
-            var markers = [
-                {lat: 37.5665, lng: 126.9780, popup: "서울 🇰🇷", tooltip: "Seoul", link: ""},
-                {lat: 35.6762, lng: 139.6503, popup: "도쿄 🇯🇵", tooltip: "Tokyo", link: ""},
-                {lat: 40.7128, lng: -74.0060, popup: "뉴욕 🇺🇸", tooltip: "New York", link: ""},
-                {lat: 51.5074, lng: -0.1278, popup: "런던 🇬🇧", tooltip: "London", link: ""},
-                {lat: 48.8566, lng: 2.3522, popup: "파리 🇫🇷", tooltip: "Paris", link: ""}
-            ];
-        }
+<!-- 마커 레이어 (연도별 표시/숨김) -->
+<script src="scripts/markers.js"></script>
+<script>
+  // 폴백: markers.js가 없다면 임시 데이터
+  if (typeof markers === 'undefined') {
+    var markers = [
+      {lat: 37.5665, lng: 126.9780, popup: "서울 🇰🇷", tooltip: "Seoul", link: "", year: 2020},
+      {lat: 35.6762, lng: 139.6503, popup: "도쿄 🇯🇵", tooltip: "Tokyo", link: "", year: 2023},
+      {lat: 40.7128, lng: -74.0060, popup: "뉴욕 🇺🇸", tooltip: "New York", link: "", year: 2025}
+    ];
+  }
 
-        var markerLayer = L.layerGroup();
-        markers.forEach(m => {
-            var mk = L.marker([m.lat, m.lng]);
-            mk.bindPopup(m.link? `<a href="${m.link}" target="_blank">${m.popup}</a>` : m.popup, { maxWidth:250 });
-            mk.bindTooltip(m.tooltip||m.popup, { sticky:true });
-            markerLayer.addLayer(mk);
-        });
-        
-        const SHOW_ZOOM = 6;
-        function toggleMarkers() {
-            if (map.getZoom() >= SHOW_ZOOM) {
-                if (!map.hasLayer(markerLayer)) {
-                    map.addLayer(markerLayer);
-                }
-            } else {
-                if (map.hasLayer(markerLayer)) {
-                    map.removeLayer(markerLayer);
-                }
-            }
-        }
-        
-        map.on('zoomend', toggleMarkers);
-        toggleMarkers();
-    </script>
+  // 공용 레이어(여기에 보일 마커만 넣음)
+  const markerLayer = L.layerGroup().addTo(map);
+
+  // 생성한 마커와 메타를 보관
+  const markerObjs = []; // { data, marker, year }
+
+  function getMarkerYear(m) {
+    if (typeof m.year === 'number') return m.year;
+    if (m.date) {
+      const d = new Date(m.date);
+      if (!isNaN(d)) return d.getFullYear();
+    }
+    return null; // 연도 미지정
+  }
+
+  // 1) 마커 객체만 생성(팝업만 바인딩) — 여기서는 툴팁을 바인딩하지 않습니다.
+  markers.forEach(m => {
+    const mk = L.marker([m.lat, m.lng]);
+    const html = m.link
+      ? `<a href="${m.link}" target="_blank" rel="noopener noreferrer">${m.popup || m.tooltip || '링크'}</a>`
+      : (m.popup || m.tooltip || '정보');
+    mk.bindPopup(html, { maxWidth: 250 });
+    markerObjs.push({ data: m, marker: mk, year: getMarkerYear(m) });
+  });
+
+  // 2) 연도별로 "보일 마커만" 레이어에 추가 (나머지는 안 넣음 = 화면에 안 보임)
+  function updateMarkersByYear(year) {
+    markerLayer.clearLayers(); // 일단 모두 제거
+    if (year === 'all') {
+      markerObjs.forEach(obj => {
+        markerLayer.addLayer(obj.marker);
+        const tip = obj.data.tooltip || obj.data.popup;
+        if (tip) obj.marker.bindTooltip(tip, { sticky: true });
+      });
+      return;
+    }
+    const yr = parseInt(year, 10);
+    markerObjs.forEach(obj => {
+      obj.marker.unbindTooltip();
+      if (obj.year === yr) {
+        markerLayer.addLayer(obj.marker);
+        const tip = obj.data.tooltip || obj.data.popup;
+        if (tip) obj.marker.bindTooltip(tip, { sticky: true });
+      }
+    });
+  }
+
+  // 3) 줌 조건: 일정 줌 이상일 때만 마커 레이어 보이기(원래 있던 규칙 유지)
+  const SHOW_ZOOM = 8;
+  function toggleLayerByZoom() {
+    if (map.getZoom() >= SHOW_ZOOM) {
+      if (!map.hasLayer(markerLayer)) map.addLayer(markerLayer);
+    } else {
+      if (map.hasLayer(markerLayer)) map.removeLayer(markerLayer);
+    }
+  }
+  map.on('zoomend', toggleLayerByZoom);
+  toggleLayerByZoom();
+
+  // 4) heat 연동: 연도 바꿀 때마다 마커도 필터링
+  const _origShowHeat = showHeat;  // 위에서 선언된 function showHeat(year){...}
+  showHeat = function(year) {
+    _origShowHeat(year);
+    updateMarkersByYear(year);
+  };
+
+  // 초기 상태: 전체 보기
+  updateMarkersByYear('all');
+</script>
 </body>
 </html>
