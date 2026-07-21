@@ -9,5 +9,9 @@ newphotos_with.json
 flight_candidates.json
 flight_exclusions.json
 
+# Python 실행 캐시
+__pycache__/
+*.py[cod]
+
 # 민감 정보 스크립트 전체 무시
 scripts/실패한 방법들/**

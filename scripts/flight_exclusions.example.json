@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "defaults": {
+    "buffer_before_hours": 0,
+    "buffer_after_hours": 0
+  },
+  "periods": [
+    {
+      "id": "example-flight",
+      "name": "예시: 인천-도착지",
+      "start": "2026-01-01 10:00:00",
+      "end": "2026-01-01 15:00:00",
+      "buffer_before_hours": 0,
+      "buffer_after_hours": 0,
+      "enabled": false
+    }
+  ]
+}

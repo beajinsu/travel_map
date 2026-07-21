@@ -1,6 +1,6 @@
 일단 사진파일을 다 모은다.(google photos가 유용하지만 다른 방법도 좋다.)
 사진파일이 다 모이면 위치 날짜 메타데이터를 추출한다.(google takeout.py) 현재 25년 7월 17까지 추출 됨
-위치는 반올림해서 정확도를 낮추로 그룹화 한다. (heat_data_gen.py)
+위치는 반올림해서 정확도를 낮추고 그룹화한다. (heat_data_gen.py)
   - 여기서 지우고 싶은 건 예외처리 한다.(ex. 비행기 경로에서 찍은 사진 등)
   - heat_data.js는 연도별로 나오는 것이고
   - heat_data_legacy.js는 연도별 구분없이 다 묶어서 보여주던 것이다.
@@ -14,3 +14,37 @@ my_travle_map에서 시각화 한다.
  * 그래서 원드라이브에 백업한 후 공유 폴더에서 받는 것으로 수정함
 
 ** 근데 google takeout은 메타데이터를 JSON으로 바로 주기때문에 그게 좋은 측면도 있음
+
+------------
+신규 사진 업데이트 순서
+
+1. new_photos.py 실행
+   - 새 사진의 날짜와 GPS를 newphotos_with.json에 누적한다.
+   - 실행 중 파일별 진행률과 중간 집계가 표시된다.
+
+2. detect_flight_candidates.py 실행
+   - 예: python detect_flight_candidates.py --year 2026
+   - flight_candidates.json에서 고속 이동 구간과 비행 중 촬영 후보를 확인한다.
+   - 실제 비행 중 사진이 맞는 candidate_group만 "approved": true로 바꾼다.
+   - 다시 탐지해도 동일한 후보의 승인 상태와 버퍼 설정은 유지된다.
+
+3. 자동 후보가 없지만 탑승 시간을 아는 경우
+   - flight_exclusions.json의 periods에 수동 구간을 추가한다.
+   - 형식은 flight_exclusions.example.json을 참고한다.
+   - start/end는 "YYYY-MM-DD HH:MM:SS" 형식이다.
+   - 공항이나 도착지 사진까지 지워지지 않도록 버퍼는 우선 0으로 둔다.
+   - 시간대가 불확실한 예전 데이터만 필요한 만큼 앞/뒤 버퍼를 지정한다.
+
+4. 후보와 수동 설정을 확인한 뒤 new_photos_to_heat.py 실행
+   - flight_exclusions.json의 enabled=true 구간을 제외한다.
+   - flight_candidates.json의 approved=true 후보도 함께 제외한다.
+   - 두 종류의 제외 설정을 적용하고 heat_data.js를 갱신한다.
+
+5. 홈페이지 확인 후 Git 커밋 및 푸시
+
+비행 설정 파일 역할
+
+- flight_exclusions.json: 실제 개인 설정. Git에는 올리지 않는다.
+- flight_exclusions.example.json: 공개 가능한 설정 예시.
+- flight_candidates.json: 자동 탐지 결과와 승인 상태. Git에는 올리지 않는다.
+- flight_settings.py: 위 두 파일을 공통 형식으로 읽는 코드.

@@ -250,6 +250,46 @@ def build_candidate_groups(clusters, edges):
     return groups
 
 
+def load_existing_approvals(path):
+    """재탐지해도 사용자가 승인한 후보 설정을 가능한 한 유지한다."""
+    if not path.exists():
+        return {}, {}
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}, {}
+    if not isinstance(previous, dict):
+        return {}, {}
+
+    by_id = {}
+    by_range = {}
+    for group in previous.get("candidate_groups", []):
+        if not isinstance(group, dict) or group.get("approved") is not True:
+            continue
+        preserved = {"approved": True}
+        for key in ("name", "buffer_before_hours", "buffer_after_hours"):
+            if key in group:
+                preserved[key] = group[key]
+        if group.get("id"):
+            by_id[group["id"]] = preserved
+        if group.get("start") and group.get("end"):
+            by_range[(group["start"], group["end"])] = preserved
+    return by_id, by_range
+
+
+def restore_approvals(groups, output_path):
+    by_id, by_range = load_existing_approvals(output_path)
+    restored = 0
+    for group in groups:
+        preserved = by_id.get(group["id"]) or by_range.get(
+            (group["start"], group["end"])
+        )
+        if preserved:
+            group.update(preserved)
+            restored += 1
+    return restored
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--year", type=int, default=2026)
@@ -261,6 +301,7 @@ def main():
     clusters = cluster_stationary_records(records)
     edges = suspicious_edges(clusters)
     groups = build_candidate_groups(clusters, edges)
+    restored_approvals = restore_approvals(groups, args.output)
 
     result = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -276,6 +317,7 @@ def main():
             "minimum_consecutive_fast_edges": 2,
         },
         "candidate_group_count": len(groups),
+        "restored_approval_count": restored_approvals,
         "candidate_photo_count": sum(
             group["candidate_photo_count"] for group in groups
         ),
@@ -297,6 +339,7 @@ def main():
     print(f"고속 이동 구간: {len(edges)}개")
     print(f"비행 후보 그룹: {len(groups)}개")
     print(f"비행 후보 사진: {result['candidate_photo_count']}개")
+    print(f"유지된 기존 승인: {restored_approvals}개")
     for edge in result["fast_edges"]:
         print(
             "- 고속 이동 검토: "

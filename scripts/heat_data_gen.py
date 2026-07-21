@@ -2,52 +2,24 @@
 import os
 import json
 from datetime import datetime
+from pathlib import Path
 
-# locatin 정보가 있는 Json 파일 위치를 넣으세요. 같은 폴더에 heat_map이 만들어 집니다.
-# os.chdir(r"C:\Users\jsbae\My_Drive\github\travel_map\scripts")
+from flight_settings import (
+    FlightSettingsError,
+    load_flight_periods,
+    match_flight,
+    period_summary,
+)
 
-# 컽퓨터 마다 user폴더가 다를 수 있기 때문에 다음처럼 설정
-home = os.path.expanduser("~")  # Windows라면 C:\Users\<username> 을 리턴
-target_dir = os.path.join(home, "My_Drive", "github", "travel_map", "scripts")
-os.chdir(target_dir)
+# 스크립트 위치를 기준으로 입력/출력 파일을 찾는다.
+SCRIPT_DIR = Path(__file__).resolve().parent
+os.chdir(SCRIPT_DIR)
 
 print("현재 작업 디렉토리:", os.getcwd())
-# =============================================================================
-# 🛫 비행기 탑승 시간 설정 (여기에 추가/수정하세요)
-# =============================================================================
-flight_periods = [
-    {
-        "name": "시카고-인천 1등석",
-        "start": "2017-07-17 12:50:00",  # 출발 시간
-        "end": "2017-07-18 16:30:00"     # 도착 시간
-    },
-    {
-        "name": "인천-뉴욕 디펜스 미국 출국",
-        "start": "2020-05-19 09:53:00",
-        "end": "2020-05-19 10:55:00"
-    },
-    {
-        "name": "미국-프랑크프루트-인천 귀국편",
-        "start": "2020-06-06 22:00:00",
-        "end": "2020-06-07 18:24:00"
-    },
-    {
-        "name": "사진 에러",
-        "start": "2016-03-11 09:30:00",
-        "end": "2016-03-11 23:00:00"
-    },
-    {
-        "name": "워싱턴-인천 출장 1등석 업그레이드",
-        "start": "2024-12-22 11:53:00",
-        "end": "2024-12-23 01:55:00"
-    },
-    # 필요한 만큼 더 추가하세요
-    # {
-    #     "name": "설명",
-    #     "start": "YYYY-MM-DD HH:MM:SS", # 출발 시간
-    #     "end": "YYYY-MM-DD HH:MM:SS"    # 도착 시간
-    # },
-]
+try:
+    flight_periods, flight_counts = load_flight_periods()
+except FlightSettingsError as exc:
+    raise SystemExit(f"비행 설정 오류: {exc}") from exc
 
 def parse_timestamp(timestamp_str):
     """다양한 형식의 타임스탬프를 파싱"""
@@ -110,32 +82,6 @@ def parse_timestamp(timestamp_str):
         # 오류 발생 시 None 반환
         return None
 
-from datetime import datetime, timedelta
-# 버퍼 시간 (예: 6시간, 이건 지역별로 타임존이 다르기 때문에 생길 수 있는 현상을 제거하고, 비행시간 전후를 확실히 제거하기 위함.)
-BUFFER = timedelta(hours=6)
-def is_during_flight(photo_time, flight_periods):
-    """사진 촬영 시간이 비행기 탑승 시간 중인지 확인"""
-    if not photo_time:
-        return False, None
-
-    for flight in flight_periods:
-        try:
-            # 기존 start/end 파싱
-            start = datetime.strptime(flight["start"], "%Y-%m-%d %H:%M:%S")
-            end   = datetime.strptime(flight["end"],   "%Y-%m-%d %H:%M:%S")
-            
-            # 버퍼 적용
-            buffered_start = start - BUFFER
-            buffered_end   = end   + BUFFER
-
-            if buffered_start <= photo_time <= buffered_end:
-                return True, flight["name"]
-        except ValueError as e:
-            print(f"⚠️  비행기 시간 형식 오류: {flight}, 에러: {e}")
-            continue
-
-    return False, None
-
 # 원본 위치 JSON 로드
 try:
     with open('takeout_with_location.json', 'r', encoding='utf-8') as f:
@@ -150,8 +96,12 @@ except json.JSONDecodeError:
 
 # 비행기 시간 파싱 (설정 검증)
 print("\n🛫 설정된 비행기 탑승 시간:")
+print(
+    f"  수동 {flight_counts['manual']}개, "
+    f"승인 후보 {flight_counts['approved_candidates']}개"
+)
 for i, flight in enumerate(flight_periods, 1):
-    print(f"  {i}. {flight['name']}: {flight['start']} ~ {flight['end']}")
+    print(f"  {i}. {period_summary(flight)}")
 
 # 데이터 필터링
 heat_pts = []
@@ -183,9 +133,10 @@ for i, p in enumerate(pts):
         continue
     
     # 비행기 탑승 시간 확인
-    is_flight, flight_name = is_during_flight(photo_time, flight_periods)
+    matched_flight = match_flight(photo_time, flight_periods)
     
-    if is_flight:
+    if matched_flight:
+        flight_name = matched_flight["name"]
         flight_filtered_count += 1
         # 🛫 비행기 데이터 별도 저장
         flight_point = {

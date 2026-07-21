@@ -6,34 +6,33 @@
 #  - 증분 실행에 친화적(기존 heat_data.js 유지 + 좌표 단위 중복 제거)
 
 import json, re, shutil, os
-from datetime import datetime, timedelta
+from datetime import datetime
+from pathlib import Path
 
-# 작업 디렉토리(heat_data.js와 JSON들이 있는 곳)로 변경
-os.chdir(r"C:\Users\jsbae\My_Drive\github\travel_map\scripts")
+from flight_settings import (
+    FlightSettingsError,
+    load_flight_periods,
+    match_flight,
+    period_summary,
+)
+
+# 스크립트 위치를 기준으로 입력/출력 파일을 찾는다.
+SCRIPT_DIR = Path(__file__).resolve().parent
+os.chdir(SCRIPT_DIR)
 print("데이터 병합 시작...")
 
-# =============================================================================
-# 🛫 비행기 탑승 시간 설정 (heat_data_gen.py 포맷과 동일하게 유지)
-# =============================================================================
-flight_periods = [
-    # 예시 (필요에 맞게 수정/추가)
-    {"name": "뉴욕여행 출발", 
-     "start": "2025-09-28 10:00:00",
-     "end": "2025-09-28 20:00:00"
-    },
-    {"name": "뉴욕여행 도착",
-     "start": "2025-10-08 12:00:00",
-     "end": "2025-10-09 18:00:00"
-     },
-    # 필요한 만큼 더 추가하세요
-    # {
-    #     "name": "설명",
-    #     "start": "YYYY-MM-DD HH:MM:SS", # 출발 시간
-    #     "end": "YYYY-MM-DD HH:MM:SS"    # 도착 시간
-    # },
-]
+try:
+    flight_periods, flight_counts = load_flight_periods()
+except FlightSettingsError as exc:
+    raise SystemExit(f"비행 설정 오류: {exc}") from exc
 
-BUFFER = timedelta(hours=6)  # 시간대 혼동 및 전후 버퍼 제거
+print(
+    "비행 제외 설정: "
+    f"수동 {flight_counts['manual']}개, "
+    f"승인 후보 {flight_counts['approved_candidates']}개"
+)
+for period in flight_periods:
+    print(f"  - {period_summary(period)}")
 
 def parse_timestamp(ts):
     """열린 형식 파서 (heat_data_gen.py와 유사)"""
@@ -59,19 +58,6 @@ def parse_timestamp(ts):
         return None
     except Exception:
         return None
-
-def is_during_flight(photo_time, periods):
-    if not photo_time:
-        return False, None
-    for f in periods:
-        try:
-            start = datetime.strptime(f["start"], "%Y-%m-%d %H:%M:%S") - BUFFER
-            end   = datetime.strptime(f["end"],   "%Y-%m-%d %H:%M:%S") + BUFFER
-        except Exception:
-            continue
-        if start <= photo_time <= end:
-            return True, f["name"]
-    return False, None
 
 # 1) heat_data.js (기존) 읽기
 try:
@@ -112,8 +98,8 @@ for rec in photos:
         invalid_time += 1
 
     # 비행기 제외
-    is_f, _ = is_during_flight(dt, flight_periods)
-    if is_f:
+    matched_flight = match_flight(dt, flight_periods)
+    if matched_flight:
         flight_filtered += 1
         continue
 
@@ -153,6 +139,6 @@ with open('heat_data.js','w',encoding='utf-8') as f:
     f.write('};')
 
 print("[완료] heat_data.js 업데이트 완료")
-print(f"  • all: {len(merged['all'])}개 좌표")
+print(f"  - all: {len(merged['all'])}개 좌표")
 for y in sorted([k for k in merged.keys() if k!='all']):
-    print(f"  • {y}: {len(merged[y])}개")
+    print(f"  - {y}: {len(merged[y])}개")
