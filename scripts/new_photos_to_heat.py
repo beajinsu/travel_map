@@ -152,7 +152,7 @@ with open('heat_data.js','w',encoding='utf-8') as f:
         f.write(f'  "{year}": {json.dumps(data, ensure_ascii=False, separators=(",", ":"))}{comma}\n')
     f.write('};')
 
-print("✅ heat_data.js 업데이트 완료")
+print("[완료] heat_data.js 업데이트 완료")
 print(f"  • all: {len(merged['all'])}개 좌표")
 for y in sorted([k for k in merged.keys() if k!='all']):
     print(f"  • {y}: {len(merged[y])}개")

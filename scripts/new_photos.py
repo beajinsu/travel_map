@@ -6,7 +6,7 @@
 #  - 결과를 newphotos_with.json / newphotos_without.json / CSV 보고서로 저장
 #  - "증분 처리" 지원: index 파일에 저장된 mtime/size를 기준으로 신규/변경 파일만 처리
 
-import os, csv, json, sys
+import os, csv, json, sys, time
 from pathlib import Path
 from datetime import datetime
 from PIL import Image, ExifTags
@@ -18,6 +18,9 @@ INDEX_PATH = OUT_DIR / "newphotos_index.json"  # 증분처리 인덱스
 WITH_JSON = OUT_DIR / "newphotos_with.json"
 WITHOUT_JSON = OUT_DIR / "newphotos_without.json"
 CSV_PATH = OUT_DIR / "newphotos_exif_scan_report.csv"
+
+# 진행 상황을 몇 개마다 요약해서 보여줄지 설정
+PROGRESS_SUMMARY_EVERY = 25
 
 # 스캔할 확장자
 EXTS = {".jpg", ".jpeg", ".png", ".heic", ".tif", ".tiff"}
@@ -125,22 +128,37 @@ def main():
         print(f"경로 없음: {ROOT}")
         sys.exit(1)
 
+    print("사진 파일 목록을 검색하는 중...", flush=True)
     index = load_index()
     with_location, without_location = [], []
     csv_rows = []
-    total = 0
-    touched = 0  # 이번 실행에서 새로 처리한 파일 수
+    started_at = time.perf_counter()
 
-    for p in ROOT.rglob("*"):
-        if p.is_file() and p.suffix.lower() in EXTS:
-            total += 1
-            if not need_process(p, index):
-                # 이미 처리된 파일 → 보고서용 행만 유지하려면 pass
-                continue
+    photo_files = [
+        p for p in ROOT.rglob("*")
+        if p.is_file() and p.suffix.lower() in EXTS
+    ]
+    pending_files = [p for p in photo_files if need_process(p, index)]
+    total = len(photo_files)
+    pending_total = len(pending_files)
 
-            touched += 1
-            lat, lng, tstr = extract_exif_basic(p)
+    print(f"전체 사진: {total}개", flush=True)
+    print(f"이번 실행 대상: {pending_total}개", flush=True)
+
+    if pending_total == 0:
+        print("새로 처리할 사진이 없습니다.", flush=True)
+
+    touched = 0
+    try:
+        for touched, p in enumerate(pending_files, start=1):
             rel = p.relative_to(ROOT).as_posix()
+            percent = touched / pending_total * 100
+            print(
+                f"[{touched:>4}/{pending_total} | {percent:6.2f}%] 처리 중: {rel}",
+                flush=True,
+            )
+
+            lat, lng, tstr = extract_exif_basic(p)
 
             has_gps = is_valid_coord(lat, lng)
             has_time = tstr is not None
@@ -167,6 +185,25 @@ def main():
             # 인덱스 업데이트
             key = p.as_posix().lower()
             index[key] = file_sig(p)
+
+            if touched % PROGRESS_SUMMARY_EVERY == 0 or touched == pending_total:
+                elapsed = time.perf_counter() - started_at
+                print(
+                    "  -> 중간 집계: "
+                    f"GPS {len(with_location)}개 / "
+                    f"무GPS {len(without_location)}개 / "
+                    f"경과 {elapsed:.1f}초",
+                    flush=True,
+                )
+    except KeyboardInterrupt:
+        elapsed = time.perf_counter() - started_at
+        print("\n=== 사용자가 작업을 중단했습니다 ===", flush=True)
+        print(
+            f"중단 시점: {touched}/{pending_total}개, 경과 {elapsed:.1f}초",
+            flush=True,
+        )
+        print("이번 실행 결과는 아직 파일에 저장되지 않았습니다.", flush=True)
+        raise
 
     # 기존 JSON이 있다면 이어붙이기 (중복 제거)
     existed_with = []
