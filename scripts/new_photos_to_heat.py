@@ -78,8 +78,11 @@ print(f"newphotos_with.json 로드: {len(photos)}개 사진")
 # 3) 변환(+비행기시간 제거)
 all_coords = []
 by_year = {}
+excluded_all_coords = []
+excluded_by_year = {}
 
 flight_filtered = 0
+flight_filtered_by_name = {}
 invalid_time = 0
 
 for rec in photos:
@@ -101,6 +104,14 @@ for rec in photos:
     matched_flight = match_flight(dt, flight_periods)
     if matched_flight:
         flight_filtered += 1
+        flight_name = matched_flight["name"]
+        flight_filtered_by_name[flight_name] = (
+            flight_filtered_by_name.get(flight_name, 0) + 1
+        )
+        excluded_all_coords.append([lat_r, lng_r])
+        if dt:
+            year = str(dt.year)
+            excluded_by_year.setdefault(year, []).append([lat_r, lng_r])
         continue
 
     # 전체/연도 분배
@@ -111,19 +122,57 @@ for rec in photos:
 
 print(f"변환: 전체 {len(all_coords)}개 / 연도 {len(by_year)}개, "
       f"비행기제외 {flight_filtered}개, 시간파싱실패 {invalid_time}개")
+for flight_name, count in sorted(flight_filtered_by_name.items()):
+    print(f"  - 제외 사진 {flight_name}: {count}개")
 
 # 4) 중복 제거 helper
 def dedupe(coords):
     return list({(a,b): [a,b] for a,b in coords}.values())
 
-# 5) 기존 데이터와 병합
-merged = {}
-merged['all'] = dedupe(existing.get('all', []) + all_coords)
+def remove_excluded(coords, excluded_coords):
+    excluded = {(a, b) for a, b in excluded_coords}
+    if not excluded:
+        return coords[:], 0
+    kept = [[a, b] for a, b in coords if (a, b) not in excluded]
+    return kept, len(coords) - len(kept)
 
-all_years = set(existing.keys()) | set(by_year.keys())
+# 5) 기존 데이터에서도 제외 좌표를 제거한 뒤 정상 좌표와 병합
+merged = {}
+all_years = set(existing.keys()) | set(by_year.keys()) | set(excluded_by_year.keys())
 all_years.discard('all')
+removed_existing_by_year = {}
 for y in all_years:
-    merged[y] = dedupe(existing.get(y, []) + by_year.get(y, []))
+    clean_existing_year, removed_count = remove_excluded(
+        existing.get(y, []), excluded_by_year.get(y, [])
+    )
+    removed_existing_by_year[y] = removed_count
+    merged[y] = dedupe(clean_existing_year + by_year.get(y, []))
+
+# 전체보기에서 제외 좌표를 지우되, 다른 연도에 정상적으로 남은 동일 좌표는 보호한다.
+remaining_year_coords = {
+    (a, b)
+    for year, coords in merged.items()
+    if year != 'all'
+    for a, b in coords
+}
+protected_all_coords = [
+    [a, b]
+    for a, b in excluded_all_coords
+    if (a, b) in remaining_year_coords
+]
+clean_existing_all, removed_existing_all = remove_excluded(
+    existing.get('all', []), excluded_all_coords
+)
+merged['all'] = dedupe(
+    clean_existing_all + all_coords + protected_all_coords
+)
+
+print(f"기존 지도에서 제외 좌표 제거: all {removed_existing_all}개")
+for y in sorted(y for y, count in removed_existing_by_year.items() if count):
+    print(f"  - {y}: {removed_existing_by_year[y]}개")
+protected_count = len(dedupe(protected_all_coords))
+if protected_count:
+    print(f"전체보기에서 타 연도 정상 좌표 보호: {protected_count}개")
 
 # 6) 백업 및 쓰기
 if os.path.exists('heat_data.js'):
